@@ -35,6 +35,9 @@ const http = require('http');
 const socketIo = require('socket.io');
 const sharp = require('sharp');
 const qrcode = require('qrcode');
+const crypto = require('crypto');
+
+global.crypto = crypto;
 
 class WhatsAppAdminBot {
     constructor() {
