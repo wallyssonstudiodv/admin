@@ -1,4 +1,23 @@
-const { 
+// Limpar dados do bot
+        this.app.post('/api/clear-data', (req, res) => {
+            const { type } = req.body;
+            
+            switch (type) {
+                case 'interactions':
+                    this.userInteractions.clear();
+                    break;
+                case 'warnings':
+                    this.userWarnings.clear();
+                    break;
+                case 'all':
+                    this.userInteractions.clear();
+                    this.userWarnings.clear();
+                    break;
+            }
+            
+            this.saveBotData();
+            res.json({ success: true, message: 'Dados limpos com sucesso!' });
+        });const { 
     default: makeWASocket, 
     DisconnectReason, 
     useMultiFileAuthState,
@@ -56,7 +75,7 @@ class WhatsAppAdminBot {
         this.setupSocketIO();
 
         // Inicia servidor
-        const PORT = process.env.PORT || 3000;
+        const PORT = process.env.PORT || 8033;
         this.server.listen(PORT, () => {
             console.log(`🌐 Painel web rodando em http://localhost:${PORT}`);
         });
@@ -167,25 +186,48 @@ class WhatsAppAdminBot {
             });
         });
 
-        // Limpar dados
-        this.app.post('/api/clear-data', (req, res) => {
-            const { type } = req.body;
-            
-            switch (type) {
-                case 'interactions':
-                    this.userInteractions.clear();
-                    break;
-                case 'warnings':
-                    this.userWarnings.clear();
-                    break;
-                case 'all':
-                    this.userInteractions.clear();
-                    this.userWarnings.clear();
-                    break;
+        // Limpar dados de autenticação
+        this.app.post('/api/clear-auth', async (req, res) => {
+            try {
+                console.log('🗑️ Limpando dados de autenticação via painel...');
+                
+                // Para o bot se estiver rodando
+                if (this.sock) {
+                    await this.sock.logout();
+                    this.sock = null;
+                }
+                
+                await this.clearAuthData();
+                this.connectionStatus = 'disconnected';
+                this.io.emit('statusUpdate', { status: this.connectionStatus, qrCode: null });
+                
+                res.json({ success: true, message: 'Dados de autenticação limpos! Você pode conectar novamente.' });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
             }
-            
-            this.saveBotData();
-            res.json({ success: true, message: 'Dados limpos com sucesso!' });
+        });
+
+        // Forçar reconexão
+        this.app.post('/api/force-reconnect', async (req, res) => {
+            try {
+                console.log('🔄 Forçando reconexão...');
+                
+                if (this.sock) {
+                    this.sock = null;
+                }
+                
+                this.connectionStatus = 'disconnected';
+                this.io.emit('statusUpdate', { status: this.connectionStatus });
+                
+                // Aguarda um pouco e reconecta
+                setTimeout(() => {
+                    this.start();
+                }, 2000);
+                
+                res.json({ success: true, message: 'Reconexão forçada iniciada!' });
+            } catch (error) {
+                res.status(500).json({ success: false, error: error.message });
+            }
         });
     }
 
@@ -220,27 +262,40 @@ class WhatsAppAdminBot {
                 const { connection, lastDisconnect, qr } = update;
                 
                 if (qr) {
-                    this.qrCode = await qrcode.toDataURL(qr);
-                    this.connectionStatus = 'qr';
-                    this.io.emit('statusUpdate', {
-                        status: this.connectionStatus,
-                        qrCode: this.qrCode
-                    });
+                    try {
+                        this.qrCode = await qrcode.toDataURL(qr);
+                        this.connectionStatus = 'qr';
+                        console.log('📱 QR Code gerado - Escaneie no painel web');
+                        this.io.emit('statusUpdate', {
+                            status: this.connectionStatus,
+                            qrCode: this.qrCode
+                        });
+                    } catch (error) {
+                        console.error('Erro ao gerar QR Code:', error);
+                    }
                 }
 
                 if (connection === 'close') {
                     const shouldReconnect = (lastDisconnect?.error instanceof Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
                     this.connectionStatus = 'disconnected';
                     this.qrCode = null;
+                    console.log('Conexão fechada devido a ', lastDisconnect?.error, ', reconectando ', shouldReconnect);
                     this.io.emit('statusUpdate', { 
                         status: this.connectionStatus,
                         qrCode: null 
                     });
                     
                     if (shouldReconnect) {
-                        console.log('Reconectando...');
+                        console.log('Reconectando em 5 segundos...');
                         setTimeout(() => this.start(), 5000);
                     }
+                } else if (connection === 'connecting') {
+                    this.connectionStatus = 'connecting';
+                    console.log('🔄 Conectando...');
+                    this.io.emit('statusUpdate', { 
+                        status: this.connectionStatus,
+                        qrCode: this.qrCode 
+                    });
                 } else if (connection === 'open') {
                     this.connectionStatus = 'connected';
                     this.qrCode = null;
@@ -554,6 +609,6 @@ process.on('unhandledRejection', (err) => {
 });
 
 console.log('🚀 Iniciando Bot WhatsApp com Painel Web...');
-console.log('🌐 Acesse: http://localhost:8033');
+console.log('🌐 Acesse: http://localhost:3000');
 
 module.exports = WhatsAppAdminBot;
