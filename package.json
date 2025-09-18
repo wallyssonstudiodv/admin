@@ -1,0 +1,38 @@
+{
+  "name": "whatsapp-admin-bot",
+  "version": "1.0.0",
+  "description": "Bot administrador para grupos do WhatsApp usando Baileys com painel web",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js",
+    "dev": "nodemon bot.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.6.0",
+    "@hapi/boom": "^10.0.1",
+    "pino": "^8.16.1",
+    "qrcode-terminal": "^0.12.0",
+    "qrcode": "^1.5.3",
+    "sharp": "^0.32.6",
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [
+    "whatsapp",
+    "bot",
+    "baileys",
+    "admin",
+    "moderator",
+    "panel",
+    "web"
+  ],
+  "author": "Seu Nome",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
